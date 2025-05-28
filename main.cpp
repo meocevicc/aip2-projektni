@@ -1,375 +1,444 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <iomanip>
 using namespace std;
 
-const int ROWS = 10;
-const int COLS = 10;
-const int WIN = 5;
+const int ROWS = 9;
+const int COLS = 9;
+const int TO_CONNECT = 5;
+const char PLAYER1 = 'X';
+const char PLAYER2 = 'O';
+const int MAX_IGRACA = 100;
 
-struct Player
+struct Rezultat
 {
-    string name;
-    char symbol;
+    string ime;
+    int pobjede;
 };
 
-void printError(const string &msg)
+void naslov()
 {
-    cout << "[GRESKA] " << msg << endl;
-    cout << "Ako trebate pomoc, unesite 'h' ili 'help'." << endl;
+    cout << "\n";
+    cout << "╔══════════════════════════════════════════════════════════════════════════════╗\n";
+    cout << "║                                                                              ║\n";
+    cout << "║   ██████╗ ██████╗ ███╗  ██╗███╗  ██╗███████╗███████╗████████╗    ██╗  ██╗    ║\n";
+    cout << "║  ██╔════╝██╔═══██╗████╗ ██║████╗ ██║██╔════╝██╔════╝╚══██╔══╝    ╚██╗██╔╝    ║\n";
+    cout << "║  ██║     ██║   ██║██╔██╗██║██╔██╗██║█████╗  ██         ██║        ╚███╔╝     ║\n";
+    cout << "║  ██║     ██║   ██║██║╚████║██║╚████║██╔══╝  ██║        ██║        ██╔██╗     ║\n";
+    cout << "║  ╚██████╗╚██████╔╝██║ ╚███║██║ ╚███║███████╗███████║   ██║       ██╔╝        ║\n";
+    cout << "║   ╚═════╝ ╚═════╝ ╚═╝  ╚══╝╚═╝  ╚══╝╚══════╝╚══════╝   ╚═╝       ╚═╝  ╚═╝    ║\n";
+    cout << "║                                                                              ║\n";
+    cout << "║                          Dobrodošli u Connect 5!                             ║\n";
+    cout << "║                       by Vukoja & Zebic                                      ║\n";
+    cout << "╚══════════════════════════════════════════════════════════════════════════════╝\n\n";
 }
 
-void help()
+void pravila()
 {
-    cout << "\n--- Pomoc ---\n"
-         << "Unesite broj kolone (0-" << COLS - 1 << ") kada ste na potezu.\n"
-         << "Simboli: X za prvog igraca, O za drugog igraca.\n"
-         << "Mozete sacuvati igru ili prikazati leaderboard iz menija.\n"
-         << "----------------\n";
+    cout << "══════════════════════════════════════════════════════════════════════════════\n";
+    cout << " PRAVILA IGRE CONNECT 5\n";
+    cout << "──────────────────────────────────────────────────────────────────────────────\n";
+    cout << " 1. Igra se na ploci 9x9.\n";
+    cout << " 2. Igraci ubacuju X i O u stupce.\n";
+    cout << " 3. Cilj: spojiti 5 svojih znakova zaredom\n";
+    cout << "    (vodoravno, okomito ili dijagonalno).\n";
+    cout << " 4. Igra prestaje kada netko spoji 5 ili je ploca puna.\n";
+    cout << "══════════════════════════════════════════════════════════════════════════════\n\n";
 }
 
-void printBoard(char board[ROWS][COLS])
+void plocaIspis(char ploca[ROWS][COLS])
 {
-    cout << "\n   ";
-    for (int i = 0; i < COLS; ++i)
-        cout << i << " ";
-    cout << "\n  ";
-    for (int i = 0; i < COLS; ++i)
-        cout << "--";
-    cout << "-\n";
-    for (int i = 0; i < ROWS; ++i)
+    cout << "\n      ";
+    for (int c = 0; c < COLS; ++c)
     {
-        cout << i << "|";
-        for (int j = 0; j < COLS; ++j)
+        cout << "\033[1;36m" << setw(2) << c + 1 << " \033[0m";
+    }
+    cout << endl;
+    cout << "    ╔";
+    for (int c = 0; c < COLS * 3 - 1; ++c)
+        cout << "═";
+    cout << "╗\n";
+    for (int r = 0; r < ROWS; ++r)
+    {
+        cout << "\033[1;36m" << setw(2) << r + 1 << "\033[0m ║";
+        for (int c = 0; c < COLS; ++c)
         {
-            cout << board[i][j] << " ";
+            if (ploca[r][c] == PLAYER1)
+                cout << " \033[1;31m" << ploca[r][c] << "\033[0m";
+            else if (ploca[r][c] == PLAYER2)
+                cout << " \033[1;34m" << ploca[r][c] << "\033[0m";
+            else
+                cout << "  ";
         }
-        cout << "|\n";
+        cout << " ║\n";
     }
-    cout << "  ";
-    for (int i = 0; i < COLS; ++i)
-        cout << "--";
-    cout << "-\n";
+    cout << "    ╚";
+    for (int c = 0; c < COLS * 3 - 1; ++c)
+        cout << "═";
+    cout << "╝\n\n";
 }
 
-bool makeMove(char board[ROWS][COLS], int col, char symbol)
+void plocaInit(char ploca[ROWS][COLS])
 {
-    if (col < 0 || col >= COLS)
+    for (int r = 0; r < ROWS; ++r)
+        for (int c = 0; c < COLS; ++c)
+            ploca[r][c] = '.';
+}
+
+bool ubaci(char ploca[ROWS][COLS], int col, char znak)
+{
+    for (int r = ROWS - 1; r >= 0; --r)
     {
-        printError("Neispravan unos kolone!");
-        return false;
-    }
-    for (int i = ROWS - 1; i >= 0; --i)
-    {
-        if (board[i][col] == '.')
+        if (ploca[r][col] == '.')
         {
-            board[i][col] = symbol;
+            ploca[r][col] = znak;
             return true;
         }
     }
-    printError("Kolona je puna!");
     return false;
 }
 
-bool checkWin(char board[ROWS][COLS], char sym)
+bool smjer(char ploca[ROWS][COLS], int r, int c, int dr, int dc, char znak)
 {
-    // horizontal, vertical, diagonal
-    for (int i = 0; i < ROWS; ++i)
-        for (int j = 0; j < COLS; ++j)
+    int broj = 0;
+    for (int i = 0; i < TO_CONNECT; ++i)
+    {
+        int nr = r + i * dr;
+        int nc = c + i * dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS)
+            return false;
+        if (ploca[nr][nc] == znak)
+            broj++;
+        else
+            break;
+    }
+    return broj == TO_CONNECT;
+}
+
+bool pobjeda(char ploca[ROWS][COLS], char znak)
+{
+    for (int r = 0; r < ROWS; ++r)
+    {
+        for (int c = 0; c < COLS; ++c)
         {
-            if (board[i][j] != sym)
-                continue;
-            // horizontal
-            if (j + WIN <= COLS)
-            {
-                int k;
-                for (k = 0; k < WIN; ++k)
-                    if (board[i][j + k] != sym)
-                        break;
-                if (k == WIN)
-                    return true;
-            }
-            // vertical
-            if (i + WIN <= ROWS)
-            {
-                int k;
-                for (k = 0; k < WIN; ++k)
-                    if (board[i + k][j] != sym)
-                        break;
-                if (k == WIN)
-                    return true;
-            }
-            // diag down-right
-            if (i + WIN <= ROWS && j + WIN <= COLS)
-            {
-                int k;
-                for (k = 0; k < WIN; ++k)
-                    if (board[i + k][j + k] != sym)
-                        break;
-                if (k == WIN)
-                    return true;
-            }
-            // diag up-right
-            if (i - WIN + 1 >= 0 && j + WIN <= COLS)
-            {
-                int k;
-                for (k = 0; k < WIN; ++k)
-                    if (board[i - k][j + k] != sym)
-                        break;
-                if (k == WIN)
-                    return true;
-            }
+            if (
+                smjer(ploca, r, c, 0, 1, znak) ||
+                smjer(ploca, r, c, 1, 0, znak) ||
+                smjer(ploca, r, c, 1, 1, znak) ||
+                smjer(ploca, r, c, 1, -1, znak))
+                return true;
         }
+    }
     return false;
 }
 
-bool checkDraw(char board[ROWS][COLS])
+bool puna(char ploca[ROWS][COLS])
 {
-    for (int j = 0; j < COLS; ++j)
-        if (board[0][j] == '.')
+    for (int c = 0; c < COLS; ++c)
+        if (ploca[0][c] == '.')
             return false;
     return true;
 }
 
-void saveGame(char board[ROWS][COLS], int currentPlayer, const Player p[2])
+void spremi(char ploca[ROWS][COLS], char naPotezu)
 {
-    ofstream fout("savegame.bin", ios::binary);
-    if (!fout)
+    ofstream bin("spoji5_save.bin", ios::binary);
+    if (!bin)
     {
-        printError("Greska pri cuvanju igre.");
+        cout << "Greska prilikom spremanja igre!\n";
         return;
     }
-    fout.write((char *)board, sizeof(char) * ROWS * COLS);
-    fout.write((char *)&currentPlayer, sizeof(int));
-    int len1 = p[0].name.size(), len2 = p[1].name.size();
-    fout.write((char *)&len1, sizeof(int));
-    fout.write(p[0].name.c_str(), len1);
-    fout.write((char *)&len2, sizeof(int));
-    fout.write(p[1].name.c_str(), len2);
-    fout.close();
-    cout << "Igra sacuvana.\n";
+    for (int r = 0; r < ROWS; ++r)
+        for (int c = 0; c < COLS; ++c)
+            bin.put(ploca[r][c]);
+    bin.put(naPotezu);
+    bin.close();
+    cout << "Igra je spremljena!\n";
 }
 
-bool loadGame(char board[ROWS][COLS], int &currentPlayer, Player p[2])
+bool ucitaj(char ploca[ROWS][COLS], char &naPotezu)
 {
-    ifstream fin("savegame.bin", ios::binary);
-    if (!fin)
+    ifstream bin("spoji5_save.bin", ios::binary);
+    if (!bin)
     {
-        printError("Ne postoji sacuvana igra.");
+        cout << "Nije pronadena spremljena igra!\n";
         return false;
     }
-    fin.read((char *)board, sizeof(char) * ROWS * COLS);
-    fin.read((char *)&currentPlayer, sizeof(int));
-    int len1, len2;
-    fin.read((char *)&len1, sizeof(int));
-    p[0].name.resize(len1);
-    fin.read(&p[0].name[0], len1);
-    fin.read((char *)&len2, sizeof(int));
-    p[1].name.resize(len2);
-    fin.read(&p[1].name[0], len2);
-    p[0].symbol = 'X';
-    p[1].symbol = 'O';
-    fin.close();
-    cout << "Igra ucitana.\n";
+    for (int r = 0; r < ROWS; ++r)
+        for (int c = 0; c < COLS; ++c)
+            ploca[r][c] = bin.get();
+    naPotezu = bin.get();
+    bin.close();
     return true;
 }
 
-void updateLeaderboard(const string &file, string winner)
+void upisiRez(string pobjednik)
 {
-    string names[100];
-    int wins[100], n = 0;
-    ifstream fin(file.c_str());
-    while (fin >> names[n] >> wins[n])
-        n++;
-    fin.close();
-    bool found = false;
+    ofstream txt("spoji5_leaderboard.txt", ios::app);
+    txt << pobjednik << endl;
+    txt.close();
+}
+
+bool usporedi(const Rezultat &a, const Rezultat &b)
+{
+    if (a.pobjede != b.pobjede)
+        return a.pobjede > b.pobjede;
+    return a.ime < b.ime;
+}
+
+void leaderboard()
+{
+    string imena[MAX_IGRACA];
+    int n = 0;
+    ifstream txt("spoji5_leaderboard.txt");
+    if (!txt)
+    {
+        cout << "Nema leaderboarda!\n";
+        return;
+    }
+    string linija;
+    while (getline(txt, linija))
+    {
+        if (linija.size() && n < MAX_IGRACA)
+            imena[n++] = linija;
+    }
+    txt.close();
+
+    Rezultat bodovi[MAX_IGRACA];
+    int brIgraca = 0;
     for (int i = 0; i < n; ++i)
     {
-        if (names[i] == winner)
+        bool nadjen = false;
+        for (int j = 0; j < brIgraca; ++j)
         {
-            wins[i]++;
-            found = true;
-        }
-    }
-    if (!found)
-    {
-        names[n] = winner;
-        wins[n] = 1;
-        n++;
-    }
-    // sort by wins
-    for (int i = 0; i < n - 1; ++i)
-        for (int j = i + 1; j < n; ++j)
-            if (wins[i] < wins[j])
+            if (bodovi[j].ime == imena[i])
             {
-                swap(wins[i], wins[j]);
-                swap(names[i], names[j]);
+                bodovi[j].pobjede++;
+                nadjen = true;
+                break;
             }
-    ofstream fout(file.c_str());
-    for (int i = 0; i < n; ++i)
-        fout << names[i] << " " << wins[i] << endl;
-    fout.close();
-}
-
-void showLeaderboard(const string &file)
-{
-    ifstream fin(file.c_str());
-    string n;
-    int w, pos = 1;
-    cout << "\n--- Leaderboard ---\n";
-    cout << "Pozicija | Igrac           | Pobede\n";
-    cout << "-------------------------------\n";
-    while (fin >> n >> w)
-    {
-        cout << "   " << pos << "     | " << n;
-        for (int i = 0; i < 15 - n.length(); ++i)
-            cout << ' ';
-        cout << "|   " << w << endl;
-        pos++;
+        }
+        if (!nadjen && brIgraca < MAX_IGRACA)
+        {
+            bodovi[brIgraca].ime = imena[i];
+            bodovi[brIgraca].pobjede = 1;
+            brIgraca++;
+        }
     }
-    cout << "-------------------------------\n";
-    fin.close();
+
+    for (int i = 0; i < brIgraca - 1; ++i)
+    {
+        for (int j = i + 1; j < brIgraca; ++j)
+        {
+            if (!usporedi(bodovi[i], bodovi[j]))
+            {
+                Rezultat tmp = bodovi[i];
+                bodovi[i] = bodovi[j];
+                bodovi[j] = tmp;
+            }
+        }
+    }
+
+    cout << "\n";
+    cout << "╔════════════════════════════════════════════════════════════╗\n";
+    cout << "║                       🏆  LEADERBOARD  🏆                ║\n";
+    cout << "╠════════════════════════════════════════════════════════════╣\n";
+    cout << "║  Pozicija │   Igrač             │  Pobjede               ║\n";
+    cout << "╟───────────┼─────────────────────┼────────────────────────╢\n";
+    int prikazi = brIgraca;
+    if (prikazi > 10)
+        prikazi = 10;
+    for (int i = 0; i < prikazi; ++i)
+    {
+        cout << "║   ";
+        cout << setw(2) << i + 1 << "      │ ";
+        cout << setw(17) << left << bodovi[i].ime.substr(0, 17) << " │ ";
+        cout << setw(7) << right << bodovi[i].pobjede << "                ║\n";
+    }
+    cout << "╚════════════════════════════════════════════════════════════╝\n\n";
 }
 
-int getIntInput(const string &poruka, int minval, int maxval)
+void novaIgra()
 {
-    string unos;
-    int x;
+    char ploca[ROWS][COLS];
+    plocaInit(ploca);
+    char naPotezu = PLAYER1;
+    string p1, p2;
+    cout << "Unesite ime igraca 1 (\033[1;31mX\033[0m): ";
+    getline(cin, p1);
+    cout << "Unesite ime igraca 2 (\033[1;34mO\033[0m): ";
+    getline(cin, p2);
     while (true)
     {
-        cout << poruka;
-        cin >> unos;
-        if (unos == "h" || unos == "help")
-        {
-            help();
-            continue;
-        }
-        try
-        {
-            x = stoi(unos);
-        }
-        catch (...)
-        {
-            printError("Unos nije broj!");
-            continue;
-        }
-        if (x < minval || x > maxval)
-        {
-            printError("Unos nije u dozvoljenom opsegu!");
-            continue;
-        }
-        return x;
-    }
-}
-
-void playGame(Player p[2])
-{
-    char board[ROWS][COLS];
-    for (int i = 0; i < ROWS; ++i)
-        for (int j = 0; j < COLS; ++j)
-            board[i][j] = '.';
-    int currentPlayer = 0;
-    string unos;
-    while (true)
-    {
-        printBoard(board);
-        cout << "Na potezu: " << p[currentPlayer].name << " (" << p[currentPlayer].symbol << ")" << endl;
-        cout << "Unesite kolonu (0-" << COLS - 1 << ") ili 'h' za pomoc: ";
-        cin >> unos;
-        if (unos == "h" || unos == "help")
-        {
-            help();
-            continue;
-        }
+        plocaIspis(ploca);
+        cout << "Na potezu je " << ((naPotezu == PLAYER1) ? ("\033[1;31m" + p1 + "\033[0m") : ("\033[1;34m" + p2 + "\033[0m")) << " (" << naPotezu << ")" << endl;
+        cout << "Unesite broj kolone (1-" << COLS << "), 0 za spremi, -1 za izlaz: ";
         int col;
-        try
+        cin >> col;
+        if (col == 0)
         {
-            col = stoi(unos);
-        }
-        catch (...)
-        {
-            printError("Unos nije broj!");
-            continue;
-        }
-        if (!makeMove(board, col, p[currentPlayer].symbol))
-            continue;
-        if (checkWin(board, p[currentPlayer].symbol))
-        {
-            printBoard(board);
-            cout << "Pobednik je: " << p[currentPlayer].name << "!\n";
-            updateLeaderboard("leaderboard.txt", p[currentPlayer].name);
+            spremi(ploca, naPotezu);
+            cout << "Igra spremljena, vracanje u menu...\n";
+            cin.ignore();
             break;
         }
-        if (checkDraw(board))
+        if (col == -1)
         {
-            printBoard(board);
-            cout << "Nereseno!\n";
+            cout << "Izlazak iz igre...\n";
+            cin.ignore();
             break;
         }
-        currentPlayer = 1 - currentPlayer;
+        if (col < 1 || col > COLS)
+        {
+            cout << "Neispravan unos!\n";
+            continue;
+        }
+        if (!ubaci(ploca, col - 1, naPotezu))
+        {
+            cout << "Kolona je puna!\n";
+            continue;
+        }
+        if (pobjeda(ploca, naPotezu))
+        {
+            plocaIspis(ploca);
+            string pobjednik = (naPotezu == PLAYER1) ? p1 : p2;
+            cout << "🎉 Cestitamo! Pobjednik je \033[1;32m" << pobjednik << "\033[0m! 🎉\n";
+            upisiRez(pobjednik);
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.ignore();
+            cin.get();
+            break;
+        }
+        if (puna(ploca))
+        {
+            plocaIspis(ploca);
+            cout << "Nerijeseno! Nitko nije pobjedio.\n";
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.ignore();
+            cin.get();
+            break;
+        }
+        naPotezu = (naPotezu == PLAYER1) ? PLAYER2 : PLAYER1;
     }
-    cout << "Zelite li sacuvati igru? (d/n): ";
-    cin >> unos;
-    if (unos == "d" || unos == "D")
-        saveGame(board, currentPlayer, p);
+}
+
+void ucitajIgru()
+{
+    char ploca[ROWS][COLS];
+    char naPotezu;
+    if (!ucitaj(ploca, naPotezu))
+    {
+        cout << "Nema spremljene igre!\n";
+        cout << "Pritisnite Enter za povratak u menu...";
+        cin.ignore();
+        return;
+    }
+    string p1, p2;
+    cout << "Unesite ime igraca 1 (\033[1;31mX\033[0m): ";
+    getline(cin, p1);
+    cout << "Unesite ime igraca 2 (\033[1;34mO\033[0m): ";
+    getline(cin, p2);
+    while (true)
+    {
+        plocaIspis(ploca);
+        cout << "Na potezu je " << ((naPotezu == PLAYER1) ? ("\033[1;31m" + p1 + "\033[0m") : ("\033[1;34m" + p2 + "\033[0m")) << " (" << naPotezu << ")" << endl;
+        cout << "Unesite broj kolone (1-" << COLS << "), 0 za spremi, -1 za izlaz: ";
+        int col;
+        cin >> col;
+        if (col == 0)
+        {
+            spremi(ploca, naPotezu);
+            cout << "Igra spremljena, vracanje u menu...\n";
+            cin.ignore();
+            break;
+        }
+        if (col == -1)
+        {
+            cout << "Izlazak iz igre...\n";
+            cin.ignore();
+            break;
+        }
+        if (col < 1 || col > COLS)
+        {
+            cout << "Neispravan unos!\n";
+            continue;
+        }
+        if (!ubaci(ploca, col - 1, naPotezu))
+        {
+            cout << "Kolona je puna!\n";
+            continue;
+        }
+        if (pobjeda(ploca, naPotezu))
+        {
+            plocaIspis(ploca);
+            string pobjednik = (naPotezu == PLAYER1) ? p1 : p2;
+            cout << "🎉 Cestitamo! Pobjednik je \033[1;32m" << pobjednik << "\033[0m! 🎉\n";
+            upisiRez(pobjednik);
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.ignore();
+            cin.get();
+            break;
+        }
+        if (puna(ploca))
+        {
+            plocaIspis(ploca);
+            cout << "Nerijeseno! Nitko nije pobjedio.\n";
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.ignore();
+            cin.get();
+            break;
+        }
+        naPotezu = (naPotezu == PLAYER1) ? PLAYER2 : PLAYER1;
+    }
 }
 
 int main()
 {
-    Player p[2];
-    string unos;
-    int izbor;
     while (true)
     {
-        cout << "\n--- Connect 5 ---\n";
-        cout << "1. Nova igra\n";
-        cout << "2. Ucitaj igru\n";
-        cout << "3. Prikazi leaderboard\n";
-        cout << "4. Izlaz\n";
-        cout << "Unesite izbor: ";
-        cin >> unos;
-        if (unos == "h" || unos == "help")
-        {
-            help();
-            continue;
-        }
-        try
-        {
-            izbor = stoi(unos);
-        }
-        catch (...)
-        {
-            printError("Pogresan unos!");
-            continue;
-        }
+        naslov();
+        cout << "╔════════════════════════════════════════════════════════════╗\n";
+        cout << "║  1. Nova igra                                              ║\n";
+        cout << "║  2. Ucitaj spremljenu igru                                 ║\n";
+        cout << "║  3. Pravila                                                ║\n";
+        cout << "║  4. Leaderboard                                            ║\n";
+        cout << "║  5. Izlaz                                                  ║\n";
+        cout << "╚════════════════════════════════════════════════════════════╝\n";
+        cout << "Odaberite opciju: ";
+        int izbor;
+        cin >> izbor;
+        cin.ignore();
         if (izbor == 1)
         {
-            cout << "Ime prvog igraca: ";
-            cin >> p[0].name;
-            p[0].symbol = 'X';
-            cout << "Ime drugog igraca: ";
-            cin >> p[1].name;
-            p[1].symbol = 'O';
-            playGame(p);
+            novaIgra();
         }
         else if (izbor == 2)
         {
-            if (loadGame((char (*)[COLS])p, izbor, p))
-                playGame(p);
+            ucitajIgru();
         }
         else if (izbor == 3)
         {
-            showLeaderboard("leaderboard.txt");
+            pravila();
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.get();
         }
         else if (izbor == 4)
         {
-            cout << "Dovidjenja!\n";
+            leaderboard();
+            cout << "Pritisnite Enter za povratak u menu...";
+            cin.get();
+        }
+        else if (izbor == 5)
+        {
+            cout << "Hvala sto ste igrali Connect 5! 👋\n";
             break;
         }
         else
         {
-            printError("Pogresan izbor!");
+            cout << "Neispravan izbor!\n";
         }
+        cout << endl;
     }
     return 0;
 }
