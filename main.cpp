@@ -49,19 +49,21 @@ void pravila()
 
 void plocaIspis(char ploca[ROWS][COLS])
 {
-    cout << "\n      ";
+    cout << "\n     ";
     for (int c = 0; c < COLS; ++c)
     {
-        cout << "\033[1;36m" << setw(2) << c + 1 << " \033[0m";
+        cout << "\033[1;36m " << c + 1 << " \033[0m";
     }
     cout << endl;
-    cout << "    ╔";
-    for (int c = 0; c < COLS * 3 - 1; ++c)
-        cout << "═";
-    cout << "╗\n";
+
+    cout << "    ╔─";
+    for (int c = 0; c < COLS - 1; ++c)
+        cout << "───";
+    cout << "──╗\n";
+
     for (int r = 0; r < ROWS; ++r)
     {
-        cout << "\033[1;36m" << setw(2) << r + 1 << "\033[0m ║";
+        cout << "    ║";
         for (int c = 0; c < COLS; ++c)
         {
             if (ploca[r][c] == PLAYER1)
@@ -70,13 +72,15 @@ void plocaIspis(char ploca[ROWS][COLS])
                 cout << " \033[1;34m" << ploca[r][c] << "\033[0m";
             else
                 cout << " " << ploca[r][c];
+            cout << " ";
         }
-        cout << " ║\n";
+        cout << "║\n";
     }
-    cout << "    ╚";
-    for (int c = 0; c < COLS * 3 - 1; ++c)
-        cout << "═";
-    cout << "╝\n\n";
+
+    cout << "    ╚─";
+    for (int c = 0; c < COLS - 1; ++c)
+        cout << "───";
+    cout << "──╝\n\n";
 }
 
 void plocaInit(char ploca[ROWS][COLS])
